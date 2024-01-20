@@ -5,8 +5,12 @@ description = "Aggregate RSS and friends."
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.7", default-features = false, features = ["http1", "json", "tokio", "tracing"] }
+axum = { version = "0.7", default-features = false, features = ["http1", "http2", "json", "tokio", "tracing"] }
 clap = { version = "4", features = ["derive"] }
+http-body-util = "0.1"
+hyper = { version = "1", features = ["client", "http1", "http2"] }
+hyper-rustls = { version = "0.26", features = ["http2"] }
+hyper-util = { version = "0.1", features = ["client"] }
 tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread"] }
 tower = "0.4"
 tower-http = { version = "0.5", features = ["compression-br", "trace"] }
