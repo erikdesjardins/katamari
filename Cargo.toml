@@ -5,7 +5,7 @@ description = "Aggregate RSS and friends."
 edition = "2021"
 
 [dependencies]
-axum = "0.7"
+axum = { version = "0.7", default-features = false, features = ["http1", "json", "tokio", "tracing"] }
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread"] }
 tower = "0.4"
