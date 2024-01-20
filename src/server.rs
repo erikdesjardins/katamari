@@ -2,6 +2,8 @@ use axum::routing::get;
 use axum::Router;
 use std::io;
 use std::net::SocketAddr;
+use tower::ServiceBuilder;
+use tower_http::compression::CompressionLayer;
 use tower_http::trace::TraceLayer;
 
 pub async fn run(addr: SocketAddr) -> Result<(), io::Error> {
@@ -9,9 +11,11 @@ pub async fn run(addr: SocketAddr) -> Result<(), io::Error> {
 
     tracing::info!("listening on {}", addr);
 
-    let app = Router::new()
-        .route("/", get(index))
-        .layer(TraceLayer::new_for_http());
+    let app = Router::new().route("/", get(index)).layer(
+        ServiceBuilder::new()
+            .layer(TraceLayer::new_for_http())
+            .layer(CompressionLayer::new().br(true)),
+    );
 
     axum::serve(listener, app).await?;
 
