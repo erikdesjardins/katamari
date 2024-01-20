@@ -1,0 +1,15 @@
+[package]
+name = "katamari"
+version = "0.0.0"
+description = "Aggregate RSS and friends."
+edition = "2021"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+env_logger = { version = "0.10", default-features = false, features = ["humantime"] }
+log = "0.4"
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
