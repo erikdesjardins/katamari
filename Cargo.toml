@@ -1,6 +1,6 @@
 [package]
 name = "katamari"
-version = "0.1.0"
+version = "0.1.1"
 description = "Aggregate RSS and friends."
 edition = "2021"
 
