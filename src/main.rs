@@ -1,17 +1,32 @@
-mod opt;
+#![allow(clippy::enum_variant_names)]
 
-fn main() {
+use std::io;
+use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+
+mod err;
+mod fetch;
+mod opt;
+mod server;
+
+#[tokio::main(flavor = "multi_thread")]
+async fn main() -> Result<(), io::Error> {
     let opt::Options {
         verbose,
         listen_addr,
     } = clap::Parser::parse();
 
-    env_logger::Builder::new()
-        .filter_level(match verbose {
-            0 => log::LevelFilter::Warn,
-            1 => log::LevelFilter::Info,
-            2 => log::LevelFilter::Debug,
-            _ => log::LevelFilter::Trace,
+    tracing_subscriber::registry()
+        .with(match verbose {
+            0 => LevelFilter::INFO,
+            1 => LevelFilter::DEBUG,
+            _ => LevelFilter::TRACE,
         })
+        .with(tracing_subscriber::fmt::layer())
         .init();
+
+    server::run(listen_addr).await?;
+
+    Ok(())
 }
