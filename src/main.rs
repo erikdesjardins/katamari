@@ -3,6 +3,8 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
+mod err;
+mod fetch;
 mod opt;
 mod server;
 

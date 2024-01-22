@@ -1,9 +1,7 @@
+use crate::fetch::FetchClient;
 use axum::routing::get;
 use axum::Router;
-use http_body_util::Empty;
-use hyper::body::Bytes;
-use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
-use hyper_util::client::legacy::connect::HttpConnector;
+use hyper_rustls::HttpsConnectorBuilder;
 use hyper_util::client::legacy::Client;
 use hyper_util::rt::TokioExecutor;
 use std::io;
@@ -16,7 +14,7 @@ use tower_http::trace::TraceLayer;
 mod index;
 
 struct AppState {
-    client: Client<HttpsConnector<HttpConnector>, Empty<Bytes>>,
+    client: FetchClient,
 }
 
 pub async fn run(addr: SocketAddr) -> Result<(), io::Error> {
