@@ -50,7 +50,6 @@ pub async fn get(
         <html>
             <head>
                 <meta charset="utf-8">
-                <title>katamari</title>
             </head>
             <body>
                 <ul>
