@@ -61,14 +61,7 @@ pub async fn get(
         "#,
         entries
             .into_iter()
-            .map(|item| {
-                format!(
-                    r#"<li><a href="{}">{}</a><p>{}</p></li>"#,
-                    item.href,
-                    item.title,
-                    item.summary.as_deref().unwrap_or_default()
-                )
-            })
+            .map(|item| { format!(r#"<li><a href="{}">{}</a></li>"#, item.href, item.title) })
             .collect::<Vec<_>>()
             .join("\n")
     )))
