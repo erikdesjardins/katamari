@@ -1,3 +1,5 @@
+#![allow(clippy::enum_variant_names)]
+
 use std::io;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
