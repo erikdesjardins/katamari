@@ -3,6 +3,7 @@ use crate::fetch;
 use crate::server::AppState;
 use axum::extract::{RawQuery, State};
 use axum::response::{Html, IntoResponse};
+use chrono::Local;
 use std::cmp;
 use std::sync::Arc;
 use thiserror::Error;
@@ -42,7 +43,7 @@ pub async fn get(
 
     all_entries.sort_by_key(|entry| cmp::Reverse(entry.timestamp));
 
-    Ok(Html(format!(
+    let mut html = String::from(
         r#"
         <!DOCTYPE html>
         <html>
@@ -51,15 +52,22 @@ pub async fn get(
             </head>
             <body>
                 <ul>
-                    {}
-                </ul>
-            </body>
-        </html>
-        "#,
-        all_entries
-            .into_iter()
-            .map(|item| { format!(r#"<li><a href="{}">{}</a></li>"#, item.href, item.title) })
-            .collect::<Vec<_>>()
-            .join("\n")
-    )))
+    "#,
+    );
+
+    let mut last_date = None;
+    for entry in all_entries {
+        let date = entry.timestamp.with_timezone(&Local).date_naive();
+        if last_date != Some(date) {
+            html.push_str(&format!("<h1>{}</h1>", date));
+            last_date = Some(date);
+        }
+
+        html.push_str(&format!(
+            r#"<li><a href="{}">{}</a></li>"#,
+            entry.href, entry.title
+        ));
+    }
+
+    Ok(Html(html))
 }
