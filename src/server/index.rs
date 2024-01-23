@@ -2,12 +2,11 @@ use crate::err::Error;
 use crate::fetch;
 use crate::server::AppState;
 use axum::extract::{RawQuery, State};
-use axum::http::uri::InvalidUri;
 use axum::response::{Html, IntoResponse};
 use std::cmp;
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::spawn;
+use tokio::task::JoinSet;
 
 #[derive(Debug, Error)]
 enum GetError {
@@ -27,19 +26,17 @@ pub async fn get(
     };
 
     // Start all the requests concurrently...
-    let pending_feeds = params
-        .split('&')
-        .map(|url| {
-            let url = url.parse()?;
-            let feed = spawn(fetch::rss(state.client.clone(), url));
-            Ok(feed)
-        })
-        .collect::<Result<Vec<_>, InvalidUri>>()?;
+    let mut pending_feeds = JoinSet::new();
+    for url in params.split('&') {
+        let url = url.parse()?;
+        let feed = fetch::rss(state.client.clone(), url);
+        pending_feeds.spawn(feed);
+    }
 
     // ...and wait for them to finish.
     let mut entries = Vec::new();
-    for pending_feed in pending_feeds {
-        entries.extend(pending_feed.await??);
+    while let Some(pending_feed) = pending_feeds.join_next().await {
+        entries.extend(pending_feed??);
     }
 
     entries.sort_by_key(|entry| cmp::Reverse(entry.timestamp));
