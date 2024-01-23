@@ -18,7 +18,7 @@ pub struct Feed {
 }
 
 #[derive(Debug)]
-pub struct Entry {
+pub struct Item {
     pub timestamp: DateTime<Utc>,
     pub href: String,
     pub title: String,
@@ -38,7 +38,7 @@ enum RssError {
     MissingFeedTitle,
 }
 
-pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Entry>), Error> {
+pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Item>), Error> {
     let request = Request::builder()
         .method(Method::GET)
         .uri(url)
@@ -59,11 +59,11 @@ pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Entry>), Er
         logo_url: raw_feed.logo.map(|l| l.uri),
     };
 
-    let entries = raw_feed
+    let items = raw_feed
         .entries
         .into_iter()
         .map(|item| {
-            Ok(Entry {
+            Ok(Item {
                 timestamp: item
                     .published
                     .or(item.updated)
@@ -87,7 +87,7 @@ pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Entry>), Er
         .collect::<Result<Vec<_>, RssError>>()?;
 
     tracing::debug!("parsed feed: {:#?}", feed);
-    tracing::debug!("first entry: {:#?}", entries.first());
+    tracing::debug!("first item: {:#?}", items.first());
 
-    Ok((feed, entries))
+    Ok((feed, items))
 }

@@ -1,10 +1,12 @@
 use crate::err::Error;
-use crate::fetch;
+use crate::fetch::{self, Item};
 use crate::server::AppState;
 use axum::extract::{RawQuery, State};
 use axum::response::{Html, IntoResponse};
-use chrono::Local;
+use chrono::{Local, NaiveDate};
 use std::cmp;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::task::JoinSet;
@@ -35,13 +37,52 @@ pub async fn get(
     }
 
     // ...and wait for them to finish.
-    let mut all_entries = Vec::new();
+    let mut all_items = Vec::new();
     while let Some(result) = pending_feeds.join_next().await {
-        let (_feed, entries) = result??;
-        all_entries.extend(entries);
+        let (_feed, items) = result??;
+        all_items.extend(items);
     }
 
-    all_entries.sort_by_key(|entry| cmp::Reverse(entry.timestamp));
+    // Collect items into one list per day, and deduplicate them.
+
+    all_items.sort_by_key(|item| cmp::Reverse(item.timestamp));
+
+    struct Day {
+        date: NaiveDate,
+        items_with_count: Vec<(Item, usize)>,
+        title_to_index: HashMap<String, usize>,
+    }
+
+    let mut days = Vec::<Day>::new();
+
+    for item in all_items {
+        // Check whether we need to start a new day.
+        let date = item.timestamp.with_timezone(&Local).date_naive();
+        if days.last().map(|d| d.date) != Some(date) {
+            days.push(Day {
+                date,
+                items_with_count: Default::default(),
+                title_to_index: Default::default(),
+            });
+        }
+        // Get or insert this item.
+        let day = days.last_mut().unwrap();
+        match day.title_to_index.entry(item.title.clone()) {
+            // If we've already seen this item, increment its count,
+            // and override the entry (so the oldest entry is used).
+            Entry::Occupied(entry) => {
+                let index = *entry.get();
+                day.items_with_count[index].0 = item;
+                day.items_with_count[index].1 += 1;
+            }
+            // Otherwise, add a new item.
+            Entry::Vacant(entry) => {
+                let index = day.items_with_count.len();
+                day.items_with_count.push((item, 1));
+                entry.insert(index);
+            }
+        }
+    }
 
     let mut html = String::from(
         r#"
@@ -55,18 +96,20 @@ pub async fn get(
     "#,
     );
 
-    let mut last_date = None;
-    for entry in all_entries {
-        let date = entry.timestamp.with_timezone(&Local).date_naive();
-        if last_date != Some(date) {
-            html.push_str(&format!("<h1>{}</h1>", date));
-            last_date = Some(date);
-        }
+    for day in days {
+        html.push_str(&format!("<h1>{}</h1>", day.date));
 
-        html.push_str(&format!(
-            r#"<li><a href="{}">{}</a></li>"#,
-            entry.href, entry.title
-        ));
+        for (item, count) in day.items_with_count {
+            let item_count = if count > 1 {
+                format!(" ({}x)", count)
+            } else {
+                String::new()
+            };
+            html.push_str(&format!(
+                r#"<li><a href="{}">{}</a>{}</li>"#,
+                item.href, item.title, item_count
+            ));
+        }
     }
 
     Ok(Html(html))
