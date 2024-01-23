@@ -11,10 +11,18 @@ use thiserror::Error;
 
 pub type FetchClient = Client<HttpsConnector<HttpConnector>, Empty<Bytes>>;
 
-pub struct Entry {
+#[derive(Debug)]
+pub struct Feed {
+    pub title: String,
+    pub logo_url: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct Item {
     pub timestamp: DateTime<Utc>,
     pub href: String,
     pub title: String,
+    pub thumbnail_url: Option<String>,
     pub summary: Option<String>,
 }
 
@@ -26,9 +34,11 @@ enum RssError {
     MissingLink,
     #[error("Missing title")]
     MissingTitle,
+    #[error("Missing feed title")]
+    MissingFeedTitle,
 }
 
-pub async fn rss(client: FetchClient, url: Uri) -> Result<Vec<Entry>, Error> {
+pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Item>), Error> {
     let request = Request::builder()
         .method(Method::GET)
         .uri(url)
@@ -42,13 +52,18 @@ pub async fn rss(client: FetchClient, url: Uri) -> Result<Vec<Entry>, Error> {
 
     let rss = response.into_body().collect().await?;
 
-    let feed = feed_rs::parser::parse(&*rss.to_bytes())?;
+    let raw_feed = feed_rs::parser::parse(&*rss.to_bytes())?;
 
-    let entries = feed
+    let feed = Feed {
+        title: raw_feed.title.ok_or(RssError::MissingFeedTitle)?.content,
+        logo_url: raw_feed.logo.map(|l| l.uri),
+    };
+
+    let items = raw_feed
         .entries
         .into_iter()
         .map(|item| {
-            Ok(Entry {
+            Ok(Item {
                 timestamp: item
                     .published
                     .or(item.updated)
@@ -60,10 +75,19 @@ pub async fn rss(client: FetchClient, url: Uri) -> Result<Vec<Entry>, Error> {
                     .ok_or(RssError::MissingLink)?
                     .href,
                 title: item.title.ok_or(RssError::MissingTitle)?.content,
+                thumbnail_url: item
+                    .media
+                    .into_iter()
+                    .next()
+                    .and_then(|m| m.thumbnails.into_iter().next())
+                    .map(|t| t.image.uri),
                 summary: item.summary.map(|s| s.content),
             })
         })
-        .collect::<Result<_, RssError>>()?;
+        .collect::<Result<Vec<_>, RssError>>()?;
 
-    Ok(entries)
+    tracing::debug!("parsed feed: {:#?}", feed);
+    tracing::debug!("first item: {:#?}", items.first());
+
+    Ok((feed, items))
 }
