@@ -34,12 +34,13 @@ pub async fn get(
     }
 
     // ...and wait for them to finish.
-    let mut entries = Vec::new();
-    while let Some(pending_feed) = pending_feeds.join_next().await {
-        entries.extend(pending_feed??);
+    let mut all_entries = Vec::new();
+    while let Some(result) = pending_feeds.join_next().await {
+        let (_feed, entries) = result??;
+        all_entries.extend(entries);
     }
 
-    entries.sort_by_key(|entry| cmp::Reverse(entry.timestamp));
+    all_entries.sort_by_key(|entry| cmp::Reverse(entry.timestamp));
 
     Ok(Html(format!(
         r#"
@@ -55,7 +56,7 @@ pub async fn get(
             </body>
         </html>
         "#,
-        entries
+        all_entries
             .into_iter()
             .map(|item| { format!(r#"<li><a href="{}">{}</a></li>"#, item.href, item.title) })
             .collect::<Vec<_>>()
