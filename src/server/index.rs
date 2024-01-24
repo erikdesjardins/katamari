@@ -50,7 +50,7 @@ pub async fn get(
     struct Day {
         date: NaiveDate,
         items_with_count: Vec<(Item, usize)>,
-        title_to_index: HashMap<String, usize>,
+        url_prefix_to_index: HashMap<String, usize>,
     }
 
     let mut days = Vec::<Day>::new();
@@ -62,12 +62,18 @@ pub async fn get(
             days.push(Day {
                 date,
                 items_with_count: Default::default(),
-                title_to_index: Default::default(),
+                url_prefix_to_index: Default::default(),
             });
         }
         // Get or insert this item.
         let day = days.last_mut().unwrap();
-        match day.title_to_index.entry(item.title.clone()) {
+        // Strip hash from the URL, so multiple links to the same page (but e.g. for different events with different anchors) are deduplicated.
+        let url_prefix = item
+            .href
+            .split_once('#')
+            .map(|(prefix, _)| prefix)
+            .unwrap_or(&item.href);
+        match day.url_prefix_to_index.entry(url_prefix.to_owned()) {
             // If we've already seen this item, increment its count,
             // and override the entry (so the oldest entry is used).
             Entry::Occupied(entry) => {
