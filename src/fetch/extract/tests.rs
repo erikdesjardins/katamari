@@ -55,6 +55,34 @@ fn summary_from_html_body_matching_link() {
 }
 
 #[test]
+fn summary_from_html_body_matching_link_full_url() {
+    let summary = summary_from_html_body(
+        "https://example.com/foobar",
+        r#"
+        <div>
+            <a title="Test title" href="https://example.com/foobar">First paragraph.</a>
+        </div>
+    "#,
+    );
+
+    assert_eq!(summary.unwrap(), Some(String::from("Test title")));
+}
+
+#[test]
+fn summary_from_html_body_matching_link_path_only() {
+    let summary = summary_from_html_body(
+        "https://example.com/foobar",
+        r#"
+        <div>
+            <a title="Test title" href="/foobar">First paragraph.</a>
+        </div>
+    "#,
+    );
+
+    assert_eq!(summary.unwrap(), Some(String::from("Test title")));
+}
+
+#[test]
 fn summary_from_html_body_wrong_url() {
     let summary = summary_from_html_body(
         "https://example.com",

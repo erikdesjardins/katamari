@@ -73,7 +73,7 @@ fn summary_from_html_summary(summary: &str) -> Result<Option<String>, Error> {
     Ok(None)
 }
 
-fn summary_from_html_body(href: &str, body: &str) -> Result<Option<String>, Error> {
+fn summary_from_html_body(item_href: &str, body: &str) -> Result<Option<String>, Error> {
     let mut reader = Reader::from_str(body);
     reader.trim_text(true);
     // HTML doesn't require self-closing tags to be formatted properly,
@@ -94,8 +94,15 @@ fn summary_from_html_body(href: &str, body: &str) -> Result<Option<String>, Erro
                     let attr = attr?;
                     match attr.key.as_ref() {
                         b"href" => {
-                            if attr_value(attr, &reader)? == href {
+                            let href = attr_value(attr, &reader)?;
+                            if href == item_href {
                                 found_matching_link = true;
+                            }
+                            // Handle relative URLs.
+                            if let Some(item_href_path) = url_path(item_href) {
+                                if href == item_href_path {
+                                    found_matching_link = true;
+                                }
                             }
                         }
                         b"title" => {
@@ -131,4 +138,9 @@ fn attr_value<'a>(attr: Attribute<'a>, reader: &Reader<&[u8]>) -> Result<Cow<'a,
         Cow::Borrowed(value) => Ok(Cow::Borrowed(str::from_utf8(value)?)),
         Cow::Owned(value) => Ok(Cow::Owned(String::from_utf8(value)?)),
     }
+}
+
+fn url_path(url: &str) -> Option<&str> {
+    let url = url.strip_prefix("http://").or_else(|| url.strip_prefix("https://"))?;
+    Some(&url[url.find('/')?..])
 }
