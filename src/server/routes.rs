@@ -20,7 +20,7 @@ enum GetError {
 /// Load a list of RSS feeds, provided as query params, and display the results in chronological order.
 ///
 /// e.g. `http://localhost:3000/?https://www.rust-lang.org/feeds/releases.xml&https://blog.rust-lang.org/feed.xml`
-pub async fn get(
+pub async fn index(
     State(state): State<Arc<AppState>>,
     RawQuery(params): RawQuery,
 ) -> Result<impl IntoResponse, Error> {
