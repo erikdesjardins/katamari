@@ -9,6 +9,8 @@ use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::client::legacy::Client;
 use thiserror::Error;
 
+mod extract;
+
 pub type FetchClient = Client<HttpsConnector<HttpConnector>, Empty<Bytes>>;
 
 #[derive(Debug)]
@@ -63,28 +65,34 @@ pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Item>), Err
         .entries
         .into_iter()
         .map(|item| {
+            let timestamp = item
+                .published
+                .or(item.updated)
+                .ok_or(RssError::MissingTimestamp)?;
+            let href = item
+                .links
+                .into_iter()
+                .next()
+                .ok_or(RssError::MissingLink)?
+                .href;
+            let title = item.title.ok_or(RssError::MissingTitle)?.content;
+            let thumbnail_url = item
+                .media
+                .into_iter()
+                .next()
+                .and_then(|m| m.thumbnails.into_iter().next())
+                .map(|t| t.image.uri);
+            let summary = extract::summary(&href, item.summary, item.content)?;
+
             Ok(Item {
-                timestamp: item
-                    .published
-                    .or(item.updated)
-                    .ok_or(RssError::MissingTimestamp)?,
-                href: item
-                    .links
-                    .into_iter()
-                    .next()
-                    .ok_or(RssError::MissingLink)?
-                    .href,
-                title: item.title.ok_or(RssError::MissingTitle)?.content,
-                thumbnail_url: item
-                    .media
-                    .into_iter()
-                    .next()
-                    .and_then(|m| m.thumbnails.into_iter().next())
-                    .map(|t| t.image.uri),
-                summary: item.summary.map(|s| s.content),
+                timestamp,
+                href,
+                title,
+                thumbnail_url,
+                summary,
             })
         })
-        .collect::<Result<Vec<_>, RssError>>()?;
+        .collect::<Result<Vec<_>, Error>>()?;
 
     tracing::debug!("parsed feed: {:#?}", feed);
     tracing::debug!("first item: {:#?}", items.first());

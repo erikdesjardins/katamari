@@ -11,7 +11,7 @@ use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
 use tower_http::trace::TraceLayer;
 
-mod index;
+mod routes;
 
 struct AppState {
     client: FetchClient,
@@ -34,7 +34,7 @@ pub async fn run(addr: SocketAddr) -> Result<(), io::Error> {
     let state = Arc::new(AppState { client });
 
     let app = Router::new()
-        .route("/", get(index::get))
+        .route("/", get(routes::index))
         .with_state(state)
         .layer(
             ServiceBuilder::new()

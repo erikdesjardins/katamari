@@ -1,6 +1,6 @@
 [package]
 name = "katamari"
-version = "0.2.1"
+version = "0.3.0"
 description = "Aggregate RSS and friends."
 edition = "2021"
 
@@ -13,6 +13,7 @@ http-body-util = "0.1"
 hyper = { version = "1", features = ["client", "http1", "http2"] }
 hyper-rustls = { version = "0.26", features = ["http2"] }
 hyper-util = { version = "0.1", features = ["client"] }
+quick-xml = "0.31"
 thiserror = "1"
 tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread"] }
 tower = "0.4"
