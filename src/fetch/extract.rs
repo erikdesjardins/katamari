@@ -6,6 +6,9 @@ use quick_xml::Reader;
 use std::borrow::Cow;
 use std::str;
 
+#[cfg(test)]
+mod tests;
+
 /// Extract a summary, given an item's href and summary/content.
 pub fn summary(
     href: &str,

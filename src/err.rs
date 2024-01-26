@@ -1,5 +1,6 @@
 use axum::response::IntoResponse;
 use hyper::StatusCode;
+use std::fmt::{self, Debug};
 
 pub struct Error(Box<dyn std::error::Error + Send + Sync + 'static>);
 
@@ -9,6 +10,12 @@ where
 {
     fn from(e: T) -> Self {
         Error(e.into())
+    }
+}
+
+impl Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Debug::fmt(&self.0, f)
     }
 }
 
