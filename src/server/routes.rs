@@ -96,6 +96,16 @@ pub async fn index(
         <html>
             <head>
                 <meta charset="utf-8">
+                <style>
+                    img {
+                        height: 1rem;
+                        width: 1rem;
+                        vertical-align: middle;
+                    }
+                    .spacer {
+                        margin-left: 1rem;
+                    }
+                </style>
             </head>
             <body>
                 <ul>
@@ -106,19 +116,27 @@ pub async fn index(
         html.push_str(&format!("<h1>{}</h1>", day.date));
 
         for (item, count) in day.items_with_count {
+            let (thumbnail, spacer) = if let Some(thumbnail_url) = item.thumbnail_url {
+                (
+                    format!(r#"<img src="{}"/> "#, thumbnail_url),
+                    r#"<span class="spacer">&nbsp;</spacer>"#,
+                )
+            } else {
+                Default::default()
+            };
             let item_count = if count > 1 {
                 format!(" ({}x)", count)
             } else {
                 String::new()
             };
             let summary = if let Some(summary) = item.summary {
-                format!("<br/><sup>╚ {}</sup>", summary)
+                format!(r#"<br/>{}<sup>└ {}</sup>"#, spacer, summary)
             } else {
                 String::new()
             };
             html.push_str(&format!(
-                r#"<li><a href="{}">{}</a>{}{}</li>"#,
-                item.href, item.title, item_count, summary
+                r#"<li>{}<a href="{}">{}</a>{}{}</li>"#,
+                thumbnail, item.href, item.title, item_count, summary
             ));
         }
     }
