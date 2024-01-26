@@ -1,5 +1,5 @@
 use crate::err::Error;
-use crate::fetch::{self, Item};
+use crate::fetch::{self, Feed, Item};
 use crate::server::AppState;
 use axum::extract::{RawQuery, State};
 use axum::response::{Html, IntoResponse};
@@ -37,25 +37,32 @@ pub async fn index(
     }
 
     // ...and wait for them to finish.
-    let mut all_items = Vec::new();
+    let mut all_feeds = Vec::new();
     while let Some(result) = pending_feeds.join_next().await {
-        let (_feed, items) = result??;
-        all_items.extend(items);
+        let (feed, items) = result??;
+        all_feeds.push((feed, items));
     }
 
-    // Collect items into one list per day, and deduplicate them.
+    // Collect all items into one vec.
+    let mut all_items = Vec::new();
+    for (feed, items) in &mut all_feeds {
+        // Carry along a reference to each item's feed.
+        all_items.extend(items.drain(..).map(|item| (&*feed, item)));
+    }
 
-    all_items.sort_by_key(|item| cmp::Reverse(item.timestamp));
+    // Collect items into one vec per day, and deduplicate them.
 
-    struct Day {
+    all_items.sort_by_key(|(_, item)| cmp::Reverse(item.timestamp));
+
+    struct Day<'a> {
         date: NaiveDate,
-        items_with_count: Vec<(Item, usize)>,
+        items_with_count: Vec<(&'a Feed, Item, usize)>,
         url_prefix_to_index: HashMap<String, usize>,
     }
 
     let mut days = Vec::<Day>::new();
 
-    for item in all_items {
+    for (feed, item) in all_items {
         // Check whether we need to start a new day.
         let date = item.timestamp.with_timezone(&Local).date_naive();
         if days.last().map(|d| d.date) != Some(date) {
@@ -78,13 +85,13 @@ pub async fn index(
             // and override the entry (so the oldest entry is used).
             Entry::Occupied(entry) => {
                 let index = *entry.get();
-                day.items_with_count[index].0 = item;
-                day.items_with_count[index].1 += 1;
+                day.items_with_count[index].1 = item;
+                day.items_with_count[index].2 += 1;
             }
             // Otherwise, add a new item.
             Entry::Vacant(entry) => {
                 let index = day.items_with_count.len();
-                day.items_with_count.push((item, 1));
+                day.items_with_count.push((feed, item, 1));
                 entry.insert(index);
             }
         }
@@ -115,8 +122,10 @@ pub async fn index(
     for day in days {
         html.push_str(&format!("<h1>{}</h1>", day.date));
 
-        for (item, count) in day.items_with_count {
-            let (thumbnail, spacer) = if let Some(thumbnail_url) = item.thumbnail_url {
+        for (feed, item, count) in day.items_with_count {
+            let (thumbnail, spacer) = if let Some(thumbnail_url) =
+                item.thumbnail_url.as_ref().or(feed.logo_url.as_ref())
+            {
                 (
                     format!(r#"<img src="{}"/> "#, thumbnail_url),
                     r#"<span class="spacer">&nbsp;</spacer>"#,

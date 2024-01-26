@@ -141,6 +141,8 @@ fn attr_value<'a>(attr: Attribute<'a>, reader: &Reader<&[u8]>) -> Result<Cow<'a,
 }
 
 fn url_path(url: &str) -> Option<&str> {
-    let url = url.strip_prefix("http://").or_else(|| url.strip_prefix("https://"))?;
+    let url = url
+        .strip_prefix("http://")
+        .or_else(|| url.strip_prefix("https://"))?;
     Some(&url[url.find('/')?..])
 }
