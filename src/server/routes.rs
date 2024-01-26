@@ -50,9 +50,7 @@ pub async fn index(
         all_items.extend(items.drain(..).map(|item| (&*feed, item)));
     }
 
-    // Collect items into one vec per day, and deduplicate them.
-
-    all_items.sort_by_key(|(_, item)| cmp::Reverse(item.timestamp));
+    // Split items into one vec per day, and deduplicate them.
 
     struct Day<'a> {
         date: NaiveDate,
@@ -61,6 +59,8 @@ pub async fn index(
     }
 
     let mut days = Vec::<Day>::new();
+
+    all_items.sort_by_key(|(_, item)| cmp::Reverse(item.timestamp));
 
     for (feed, item) in all_items {
         // Check whether we need to start a new day.
