@@ -111,9 +111,14 @@ pub async fn get(
             } else {
                 String::new()
             };
+            let summary = if let Some(summary) = item.summary {
+                format!("<br/><sup>╚ {}</sup>", summary)
+            } else {
+                String::new()
+            };
             html.push_str(&format!(
-                r#"<li><a href="{}">{}</a>{}</li>"#,
-                item.href, item.title, item_count
+                r#"<li><a href="{}">{}</a>{}{}</li>"#,
+                item.href, item.title, item_count, summary
             ));
         }
     }
