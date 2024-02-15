@@ -43,56 +43,89 @@ pub async fn index(
         all_feeds.push((feed, items));
     }
 
-    // Collect all items into one vec.
+    // Collect all items into one vec, sorted by date.
     let mut all_items = Vec::new();
     for (feed, items) in &mut all_feeds {
         // Carry along a reference to each item's feed.
         all_items.extend(items.drain(..).map(|item| (&*feed, item)));
     }
+    all_items.sort_by_key(|(_, item)| cmp::Reverse(item.timestamp));
 
     // Split items into one vec per day, and deduplicate them.
 
     struct Day<'a> {
         date: NaiveDate,
-        items_with_count: Vec<(&'a Feed, Item, usize)>,
-        url_prefix_to_index: HashMap<String, usize>,
+        items: Vec<ItemsWithFeed<'a>>,
+    }
+
+    struct ItemsWithFeed<'a> {
+        feed: &'a Feed,
+        item: Item,
+        count: usize,
+        highlighted: bool,
     }
 
     let mut days = Vec::<Day>::new();
 
-    all_items.sort_by_key(|(_, item)| cmp::Reverse(item.timestamp));
-
-    for (feed, item) in all_items {
-        // Check whether we need to start a new day.
-        let date = item.timestamp.with_timezone(&Local).date_naive();
-        if days.last().map(|d| d.date) != Some(date) {
-            days.push(Day {
-                date,
-                items_with_count: Default::default(),
-                url_prefix_to_index: Default::default(),
-            });
-        }
-        // Get or insert this item.
-        let day = days.last_mut().unwrap();
-        // Strip hash from the URL, so multiple links to the same page (but e.g. for different events with different anchors) are deduplicated.
-        let url_prefix = item
-            .href
-            .split_once('#')
-            .map(|(prefix, _)| prefix)
-            .unwrap_or(&item.href);
-        match day.url_prefix_to_index.entry(url_prefix.to_owned()) {
-            // If we've already seen this item, increment its count,
-            // and override the entry (so the oldest entry is used).
-            Entry::Occupied(entry) => {
-                let index = *entry.get();
-                day.items_with_count[index].1 = item;
-                day.items_with_count[index].2 += 1;
+    {
+        let mut url_prefix_to_index = HashMap::<String, usize>::new();
+        for (feed, item) in all_items {
+            // Check whether we need to start a new day.
+            let date = item.timestamp.with_timezone(&Local).date_naive();
+            if days.last().map(|d| d.date) != Some(date) {
+                days.push(Day {
+                    date,
+                    items: Default::default(),
+                });
+                url_prefix_to_index.clear();
             }
-            // Otherwise, add a new item.
-            Entry::Vacant(entry) => {
-                let index = day.items_with_count.len();
-                day.items_with_count.push((feed, item, 1));
-                entry.insert(index);
+            // Get or insert this item.
+            let day = days.last_mut().unwrap();
+            // Strip hash from the URL, so multiple links to the same page (but e.g. for different events with different anchors) are deduplicated.
+            let url_prefix = url_prefix(&item.href);
+            match url_prefix_to_index.entry(url_prefix.to_owned()) {
+                // If we've already seen this item, increment its count,
+                // and override the entry (so the oldest entry is used).
+                Entry::Occupied(entry) => {
+                    let index = *entry.get();
+                    day.items[index].item = item;
+                    day.items[index].count += 1;
+                }
+                // Otherwise, add a new item.
+                Entry::Vacant(entry) => {
+                    let index = day.items.len();
+                    day.items.push(ItemsWithFeed {
+                        feed,
+                        item,
+                        count: 1,
+                        highlighted: false,
+                    });
+                    entry.insert(index);
+                }
+            }
+        }
+    }
+
+    // Highlight unique domains for the day.
+    {
+        let mut domain_to_entry_count = HashMap::<String, usize>::new();
+        for day in &mut days {
+            domain_to_entry_count.clear();
+
+            // Collect counts by domain.
+            for i in &mut day.items {
+                let domain = domain(&i.item.href);
+                *domain_to_entry_count.entry(domain.to_owned()).or_default() += 1;
+            }
+
+            let max_count = domain_to_entry_count.values().max().copied().unwrap_or(0);
+
+            // Mark the items with the lowest count as highlighted.
+            for i in &mut day.items {
+                let domain = domain(&i.item.href);
+                let entry_count = domain_to_entry_count[domain];
+                // Highlight if there are fewer than 3 entries with this domain, and there are less entries than the most common domain.
+                i.highlighted = entry_count < 3 && entry_count < max_count;
             }
         }
     }
@@ -112,6 +145,9 @@ pub async fn index(
                     .spacer {
                         margin-left: 1rem;
                     }
+                    .highlight {
+                        background-color: aquamarine;
+                    }
                 </style>
             </head>
             <body>
@@ -122,9 +158,9 @@ pub async fn index(
     for day in days {
         html.push_str(&format!("<h1>{}</h1>", day.date));
 
-        for (feed, item, count) in day.items_with_count {
+        for i in day.items {
             let (thumbnail, spacer) = if let Some(thumbnail_url) =
-                item.thumbnail_url.as_ref().or(feed.logo_url.as_ref())
+                i.item.thumbnail_url.as_ref().or(i.feed.logo_url.as_ref())
             {
                 (
                     format!(r#"<img src="{}"/> "#, thumbnail_url),
@@ -133,22 +169,38 @@ pub async fn index(
             } else {
                 Default::default()
             };
-            let item_count = if count > 1 {
-                format!(" ({}x)", count)
+            let item_count = if i.count > 1 {
+                format!(" ({}x)", i.count)
             } else {
                 String::new()
             };
-            let summary = if let Some(summary) = item.summary {
+            let summary = if let Some(summary) = i.item.summary {
                 format!(r#"<br/>{}<sup>└ {}</sup>"#, spacer, summary)
             } else {
                 String::new()
             };
             html.push_str(&format!(
-                r#"<li>{}<a href="{}">{}</a>{}{}</li>"#,
-                thumbnail, item.href, item.title, item_count, summary
+                r#"<li>{}<a class="{}" href="{}">{}</a>{}{}</li>"#,
+                thumbnail,
+                if i.highlighted { "highlight" } else { "" },
+                i.item.href,
+                i.item.title,
+                item_count,
+                summary
             ));
         }
     }
 
     Ok(Html(html))
+}
+
+fn url_prefix(url: &str) -> &str {
+    url.split_once('#').map(|(prefix, _)| prefix).unwrap_or(url)
+}
+
+fn domain(url: &str) -> &str {
+    url.split_once("://")
+        .and_then(|(_, rest)| rest.split_once('/'))
+        .map(|(domain, _)| domain)
+        .unwrap_or(url)
 }
