@@ -148,6 +148,9 @@ pub async fn index(
                     .highlight {
                         background-color: aquamarine;
                     }
+                    a:visited {
+                        color: color-mix(in lch, rgb(85, 26, 139), #fff)
+                    }
                 </style>
             </head>
             <body>
