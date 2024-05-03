@@ -1,7 +1,7 @@
 use crate::fetch::FetchClient;
 use axum::routing::get;
 use axum::Router;
-use hyper_rustls::HttpsConnectorBuilder;
+use hyper_rustls::HttpsConnector;
 use hyper_util::client::legacy::Client;
 use hyper_util::rt::TokioExecutor;
 use std::io;
@@ -23,7 +23,7 @@ pub async fn run(addr: SocketAddr) -> Result<(), io::Error> {
     tracing::info!("listening on {}", addr);
 
     let client = Client::builder(TokioExecutor::new()).build(
-        HttpsConnectorBuilder::new()
+        HttpsConnector::<()>::builder()
             .with_native_roots()?
             .https_or_http()
             .enable_http1()
