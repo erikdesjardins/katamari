@@ -8,11 +8,12 @@ edition = "2021"
 axum = { version = "0.7", default-features = false, features = ["http1", "tokio", "tracing"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 clap = { version = "4", features = ["derive"] }
-feed-rs = "1.4"
+feed-rs = "2"
 http-body-util = "0.1"
 hyper = { version = "1", features = ["client", "http1", "http2"] }
 hyper-rustls = { version = "0.27", default-features = false, features = ["native-tokio", "http1", "http2", "tls12", "logging", "ring"] }
 hyper-util = { version = "0.1", features = ["client"] }
+mediatype = "0.19"
 quick-xml = "0.31"
 thiserror = "1"
 tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread"] }
