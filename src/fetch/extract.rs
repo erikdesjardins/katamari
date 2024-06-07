@@ -1,5 +1,7 @@
 use crate::err::Error;
 use feed_rs::model::{Content, Text};
+use mediatype::names::{HTML, TEXT};
+use mediatype::MediaType;
 use quick_xml::events::attributes::Attribute;
 use quick_xml::events::Event;
 use quick_xml::Reader;
@@ -9,6 +11,8 @@ use std::str;
 #[cfg(test)]
 mod tests;
 
+const TEXT_HTML: MediaType = MediaType::new(TEXT, HTML);
+
 /// Extract a summary, given an item's href and summary/content.
 pub fn summary(
     href: &str,
@@ -17,32 +21,24 @@ pub fn summary(
 ) -> Result<Option<String>, Error> {
     // If summary is present...
     if let Some(summary) = summary {
-        match summary.content_type.essence_str() {
-            "text/plain" => {
-                // ...return plaintext summary directly.
-                return Ok(Some(summary.content));
-            }
-            "text/html" => {
-                // ...use heuristics to extract summary from HTML.
-                return summary_from_html_summary(&summary.content);
-            }
-            _ => {}
+        if summary.content_type.essence() == TEXT_HTML {
+            // ...use heuristics to extract summary from HTML.
+            return summary_from_html_summary(&summary.content);
+        } else {
+            // ...assume plaintext summary.
+            return Ok(Some(summary.content));
         }
     }
 
     // If content is present...
     if let Some(content) = content {
         if let Some(body) = content.body {
-            match content.content_type.essence_str() {
-                "text/plain" => {
-                    // ...return plaintext content directly.
-                    return Ok(Some(body));
-                }
-                "text/html" => {
-                    // ...use heuristics to extract content from HTML.
-                    return summary_from_html_body(href, &body);
-                }
-                _ => {}
+            if content.content_type.essence() == TEXT_HTML {
+                // ...use heuristics to extract content from HTML.
+                return summary_from_html_body(href, &body);
+            } else {
+                // ...assume plaintext content.
+                return Ok(Some(body));
             }
         }
     }

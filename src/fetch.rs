@@ -52,9 +52,9 @@ pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Item>), Err
 
     let response = client.request(request).await?;
 
-    let rss = response.into_body().collect().await?;
+    let rss = response.into_body().collect().await?.to_bytes();
 
-    let raw_feed = feed_rs::parser::parse(&*rss.to_bytes())?;
+    let raw_feed = feed_rs::parser::parse(&*rss)?;
 
     let feed = Feed {
         title: raw_feed.title.ok_or(RssError::MissingFeedTitle)?.content,
