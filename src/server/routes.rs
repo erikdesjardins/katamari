@@ -177,7 +177,10 @@ pub async fn index(
                 i.item.thumbnail_url.as_ref().or(i.feed.logo_url.as_ref())
             {
                 (
-                    format!(r#"<img src="{}"/> "#, thumbnail_url),
+                    format!(
+                        r#"<img src="{}" title="{}"/> "#,
+                        thumbnail_url, i.feed.title
+                    ),
                     r#"<span class="spacer">&nbsp;</spacer>"#,
                 )
             } else {
