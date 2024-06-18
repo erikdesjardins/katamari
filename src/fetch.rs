@@ -15,6 +15,7 @@ pub type FetchClient = Client<HttpsConnector<HttpConnector>, Empty<Bytes>>;
 
 #[derive(Debug)]
 pub struct Feed {
+    pub url: String,
     pub title: String,
     pub logo_url: Option<String>,
 }
@@ -43,7 +44,7 @@ enum RssError {
 pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Item>), Error> {
     let request = Request::builder()
         .method(Method::GET)
-        .uri(url)
+        .uri(&url)
         .header(
             ACCEPT,
             "application/atom+xml, application/rss+xml, application/xml;q=0.9, text/xml;q=0.8",
@@ -57,6 +58,7 @@ pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Item>), Err
     let raw_feed = feed_rs::parser::parse(&*rss)?;
 
     let feed = Feed {
+        url: url.to_string(),
         title: raw_feed.title.ok_or(RssError::MissingFeedTitle)?.content,
         logo_url: raw_feed.logo.map(|l| l.uri),
     };

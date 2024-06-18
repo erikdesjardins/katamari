@@ -51,6 +51,17 @@ pub async fn index(
     }
     all_items.sort_by_key(|(_, item)| cmp::Reverse(item.timestamp));
 
+    // Drop items that point to a prefix of the feed URL.
+    all_items.retain(|(feed, item)| {
+        let drop = feed.url.starts_with(url_prefix(&item.href));
+        if drop {
+            // This happens for some unimportant GitHub events, e.g. branch deletion,
+            // which just point to the GitHub homepage.
+            tracing::debug!("dropping item: {:#?}", item);
+        }
+        !drop
+    });
+
     // Split items into one vec per day, and deduplicate them.
 
     struct Day<'a> {
@@ -166,7 +177,10 @@ pub async fn index(
                 i.item.thumbnail_url.as_ref().or(i.feed.logo_url.as_ref())
             {
                 (
-                    format!(r#"<img src="{}"/> "#, thumbnail_url),
+                    format!(
+                        r#"<img src="{}" title="{}"/> "#,
+                        thumbnail_url, i.feed.title
+                    ),
                     r#"<span class="spacer">&nbsp;</spacer>"#,
                 )
             } else {
