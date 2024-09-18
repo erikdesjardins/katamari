@@ -2,7 +2,7 @@ use crate::err::Error;
 use chrono::{DateTime, Utc};
 use http_body_util::{BodyExt, Empty};
 use hyper::body::Bytes;
-use hyper::header::ACCEPT;
+use hyper::header::{ACCEPT, USER_AGENT};
 use hyper::{Method, Request, Uri};
 use hyper_rustls::HttpsConnector;
 use hyper_util::client::legacy::connect::HttpConnector;
@@ -48,6 +48,10 @@ pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Item>), Err
         .header(
             ACCEPT,
             "application/atom+xml, application/rss+xml, application/xml;q=0.9, text/xml;q=0.8",
+        )
+        .header(
+            USER_AGENT,
+            concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION")),
         )
         .body(Default::default())?;
 

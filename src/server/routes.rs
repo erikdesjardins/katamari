@@ -1,9 +1,10 @@
-use crate::err::Error;
+use crate::err::{Error, ResponseError};
 use crate::fetch::{self, Feed, Item};
 use crate::server::AppState;
 use axum::extract::{RawQuery, State};
 use axum::response::{Html, IntoResponse};
 use chrono::{Local, NaiveDate};
+use hyper::Uri;
 use std::cmp;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -13,8 +14,10 @@ use tokio::task::JoinSet;
 
 #[derive(Debug, Error)]
 enum GetError {
-    #[error("No URLs provided in query string")]
+    #[error("no URLs provided in query string")]
     NoUrls,
+    #[error("failed to fetch {0}")]
+    FailedToFetch(Uri, #[source] Error),
 }
 
 /// Load a list of RSS feeds, provided as query params, and display the results in chronological order.
@@ -23,7 +26,7 @@ enum GetError {
 pub async fn index(
     State(state): State<Arc<AppState>>,
     RawQuery(params): RawQuery,
-) -> Result<impl IntoResponse, Error> {
+) -> Result<impl IntoResponse, ResponseError> {
     let Some(params) = params else {
         return Err(GetError::NoUrls.into());
     };
@@ -31,15 +34,16 @@ pub async fn index(
     // Start all the requests concurrently...
     let mut pending_feeds = JoinSet::new();
     for url in params.split('&') {
-        let url = url.parse()?;
-        let feed = fetch::rss(state.client.clone(), url);
-        pending_feeds.spawn(feed);
+        let url: Uri = url.parse()?;
+        let feed = fetch::rss(state.client.clone(), url.clone());
+        pending_feeds.spawn(async { (url, feed.await) });
     }
 
     // ...and wait for them to finish.
     let mut all_feeds = Vec::new();
     while let Some(result) = pending_feeds.join_next().await {
-        let (feed, items) = result??;
+        let (url, result) = result?;
+        let (feed, items) = result.map_err(|e| GetError::FailedToFetch(url, e))?;
         all_feeds.push((feed, items));
     }
 

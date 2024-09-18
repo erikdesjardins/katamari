@@ -4,7 +4,7 @@ use mediatype::names::{HTML, TEXT};
 use mediatype::MediaType;
 use quick_xml::events::attributes::Attribute;
 use quick_xml::events::Event;
-use quick_xml::Reader;
+use quick_xml::{Decoder, Reader};
 use std::borrow::Cow;
 use std::str;
 
@@ -48,10 +48,11 @@ pub fn summary(
 
 fn summary_from_html_summary(summary: &str) -> Result<Option<String>, Error> {
     let mut reader = Reader::from_str(summary);
-    reader.trim_text(true);
+    reader.config_mut().trim_text(true);
     // HTML doesn't require self-closing tags to be formatted properly,
     // e.g. you can do <a><img></a>.
-    reader.check_end_names(false);
+    reader.config_mut().check_end_names = false;
+    reader.config_mut().allow_unmatched_ends = true;
 
     loop {
         match reader.read_event()? {
@@ -71,10 +72,11 @@ fn summary_from_html_summary(summary: &str) -> Result<Option<String>, Error> {
 
 fn summary_from_html_body(item_href: &str, body: &str) -> Result<Option<String>, Error> {
     let mut reader = Reader::from_str(body);
-    reader.trim_text(true);
+    reader.config_mut().trim_text(true);
     // HTML doesn't require self-closing tags to be formatted properly,
     // e.g. you can do <a><img></a>.
-    reader.check_end_names(false);
+    reader.config_mut().check_end_names = false;
+    reader.config_mut().allow_unmatched_ends = true;
 
     loop {
         match reader.read_event()? {
@@ -90,7 +92,7 @@ fn summary_from_html_body(item_href: &str, body: &str) -> Result<Option<String>,
                     let attr = attr?;
                     match attr.key.as_ref() {
                         b"href" => {
-                            let href = attr_value(attr, &reader)?;
+                            let href = attr_value(attr, reader.decoder())?;
                             if href == item_href {
                                 found_matching_link = true;
                             }
@@ -110,7 +112,7 @@ fn summary_from_html_body(item_href: &str, body: &str) -> Result<Option<String>,
                 if found_matching_link {
                     // ...then return the title of that link, if it has one.
                     if let Some(title_attr) = title_attr {
-                        let title = attr_value(title_attr, &reader)?;
+                        let title = attr_value(title_attr, reader.decoder())?;
                         return Ok(Some(title.into_owned()));
                     }
                 }
@@ -123,9 +125,9 @@ fn summary_from_html_body(item_href: &str, body: &str) -> Result<Option<String>,
     Ok(None)
 }
 
-fn attr_value<'a>(attr: Attribute<'a>, reader: &Reader<&[u8]>) -> Result<Cow<'a, str>, Error> {
+fn attr_value(attr: Attribute<'_>, decoder: Decoder) -> Result<Cow<'_, str>, Error> {
     // Try to properly decode the value
-    if let Ok(value) = attr.decode_and_unescape_value(reader) {
+    if let Ok(value) = attr.decode_and_unescape_value(decoder) {
         return Ok(value);
     }
 
