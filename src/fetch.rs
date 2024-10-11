@@ -1,4 +1,5 @@
 use crate::err::Error;
+use crate::url;
 use chrono::{DateTime, Utc};
 use http_body_util::{BodyExt, Empty};
 use hyper::body::Bytes;
@@ -92,9 +93,9 @@ pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Item>), Err
 
             Ok(Item {
                 timestamp,
-                href,
+                href: url::make_absolute(&feed.url, href),
                 title,
-                thumbnail_url,
+                thumbnail_url: thumbnail_url.map(|t| url::make_absolute(&feed.url, t)),
                 summary,
             })
         })

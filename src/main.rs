@@ -9,6 +9,7 @@ mod err;
 mod fetch;
 mod opt;
 mod server;
+mod url;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), io::Error> {

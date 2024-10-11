@@ -1,6 +1,7 @@
 use crate::err::{Error, ResponseError};
 use crate::fetch::{self, Feed, Item};
 use crate::server::AppState;
+use crate::url;
 use axum::extract::{RawQuery, State};
 use axum::response::{Html, IntoResponse};
 use chrono::{Local, NaiveDate};
@@ -57,7 +58,7 @@ pub async fn index(
 
     // Drop items that point to a prefix of the feed URL.
     all_items.retain(|(feed, item)| {
-        let drop = feed.url.starts_with(url_prefix(&item.href));
+        let drop = feed.url.starts_with(url::prefix(&item.href));
         if drop {
             // This happens for some unimportant GitHub events, e.g. branch deletion,
             // which just point to the GitHub homepage.
@@ -97,7 +98,7 @@ pub async fn index(
             // Get or insert this item.
             let day = days.last_mut().unwrap();
             // Strip hash from the URL, so multiple links to the same page (but e.g. for different events with different anchors) are deduplicated.
-            let url_prefix = url_prefix(&item.href);
+            let url_prefix = url::prefix(&item.href);
             match url_prefix_to_index.entry(url_prefix.to_owned()) {
                 // If we've already seen this item, increment its count,
                 // and override the entry (so the oldest entry is used).
@@ -129,7 +130,7 @@ pub async fn index(
 
             // Collect counts by domain.
             for i in &mut day.items {
-                let domain = domain(&i.item.href);
+                let domain = url::domain(&i.item.href);
                 *domain_to_entry_count.entry(domain.to_owned()).or_default() += 1;
             }
 
@@ -137,7 +138,7 @@ pub async fn index(
 
             // Mark the items with the lowest count as highlighted.
             for i in &mut day.items {
-                let domain = domain(&i.item.href);
+                let domain = url::domain(&i.item.href);
                 let entry_count = domain_to_entry_count[domain];
                 // Highlight if there are fewer than 3 entries with this domain, and there are less entries than the most common domain.
                 i.highlighted = entry_count < 3 && entry_count < max_count;
@@ -214,15 +215,4 @@ pub async fn index(
     }
 
     Ok(Html(html))
-}
-
-fn url_prefix(url: &str) -> &str {
-    url.split_once('#').map(|(prefix, _)| prefix).unwrap_or(url)
-}
-
-fn domain(url: &str) -> &str {
-    url.split_once("://")
-        .and_then(|(_, rest)| rest.split_once('/'))
-        .map(|(domain, _)| domain)
-        .unwrap_or(url)
 }
