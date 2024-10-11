@@ -4,6 +4,8 @@ use crate::server::AppState;
 use crate::url;
 use axum::extract::{RawQuery, State};
 use axum::response::{Html, IntoResponse};
+use base64::prelude::BASE64_URL_SAFE;
+use base64::Engine;
 use chrono::{Local, NaiveDate};
 use hyper::Uri;
 use std::cmp;
@@ -146,28 +148,30 @@ pub async fn index(
         }
     }
 
-    let mut html = String::from(
+    let nonce = BASE64_URL_SAFE.encode(rand::random::<[u8; 16]>());
+
+    let mut html = format!(
         r#"
         <!DOCTYPE html>
         <html>
             <head>
                 <meta charset="utf-8">
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https://*;" />
-                <style>
-                    img {
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-{nonce}'; img-src https://*;" />
+                <style nonce="{nonce}">
+                    img {{
                         height: 1rem;
                         width: 1rem;
                         vertical-align: middle;
-                    }
-                    .spacer {
+                    }}
+                    .spacer {{
                         margin-left: 1rem;
-                    }
-                    .highlight {
+                    }}
+                    .highlight {{
                         background-color: aquamarine;
-                    }
-                    a:visited {
+                    }}
+                    a:visited {{
                         color: color-mix(in lch, rgb(85, 26, 139), #fff)
-                    }
+                    }}
                 </style>
             </head>
             <body>
