@@ -156,7 +156,7 @@ pub async fn index(
         <html>
             <head>
                 <meta charset="utf-8">
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-{nonce}'; img-src https://*;" />
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-{nonce}'; img-src http://* https://*;" />
                 <style nonce="{nonce}">
                     img {{
                         height: 1rem;
