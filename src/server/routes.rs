@@ -188,7 +188,7 @@ pub async fn index(
             {
                 (
                     format!(
-                        r#"<img src="{}" title="{}"/> "#,
+                        r#"<img src="{}" title="{}" loading="lazy"/> "#,
                         thumbnail_url, i.feed.title
                     ),
                     r#"<span class="spacer">&nbsp;</spacer>"#,
