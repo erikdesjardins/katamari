@@ -1,4 +1,4 @@
-use crate::err::{Error, ResponseError};
+use crate::err::ResponseError;
 use crate::fetch::{self, Feed, Item};
 use crate::server::AppState;
 use crate::url;
@@ -19,8 +19,6 @@ use tokio::task::JoinSet;
 enum GetError {
     #[error("no URLs provided in query string")]
     NoUrls,
-    #[error("failed to fetch {0}")]
-    FailedToFetch(Uri, #[source] Error),
 }
 
 /// Load a list of RSS feeds, provided as query params, and display the results in chronological order.
@@ -43,11 +41,18 @@ pub async fn index(
     }
 
     // ...and wait for them to finish.
+    let mut feed_errors = Vec::new();
     let mut all_feeds = Vec::new();
     while let Some(result) = pending_feeds.join_next().await {
         let (url, result) = result?;
-        let (feed, items) = result.map_err(|e| GetError::FailedToFetch(url, e))?;
-        all_feeds.push((feed, items));
+        match result {
+            Err(e) => {
+                feed_errors.push((url, e));
+            }
+            Ok((feed, items)) => {
+                all_feeds.push((feed, items));
+            }
+        }
     }
 
     // Collect all items into one vec, sorted by date.
@@ -166,6 +171,9 @@ pub async fn index(
                     .spacer {{
                         margin-left: 1rem;
                     }}
+                    .error {{
+                        background-color: lightpink;
+                    }}
                     .highlight {{
                         background-color: aquamarine;
                     }}
@@ -178,6 +186,16 @@ pub async fn index(
                 <ul>
     "#,
     );
+
+    if !feed_errors.is_empty() {
+        html.push_str("<h1>Errors</h1>");
+        for (url, e) in feed_errors {
+            html.push_str(&format!(
+                r#"<li><a class="error" href="{}">{}</a><br/><sup>└ {}</sup></li>"#,
+                url, url, e
+            ));
+        }
+    }
 
     for day in days {
         html.push_str(&format!("<h1>{}</h1>", day.date));
