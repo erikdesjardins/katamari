@@ -1,5 +1,4 @@
 use crate::err::Error;
-use crate::url;
 use chrono::{DateTime, Utc};
 use http_body_util::{BodyExt, Empty};
 use hyper::body::Bytes;
@@ -58,12 +57,15 @@ pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Item>), Err
 
     let response = client.request(request).await?;
 
+    let url = url.to_string();
     let rss = response.into_body().collect().await?.to_bytes();
 
-    let raw_feed = feed_rs::parser::parse(&*rss)?;
+    let parser = feed_rs::parser::Builder::new().base_uri(Some(&url)).build();
+
+    let raw_feed = parser.parse(&*rss)?;
 
     let feed = Feed {
-        url: url.to_string(),
+        url,
         title: raw_feed.title.ok_or(RssError::MissingFeedTitle)?.content,
         logo_url: raw_feed.logo.map(|l| l.uri),
     };
@@ -93,9 +95,9 @@ pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Item>), Err
 
             Ok(Item {
                 timestamp,
-                href: url::make_absolute(&feed.url, href),
+                href,
                 title,
-                thumbnail_url: thumbnail_url.map(|t| url::make_absolute(&feed.url, t)),
+                thumbnail_url,
                 summary,
             })
         })
