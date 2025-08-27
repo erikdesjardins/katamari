@@ -9,6 +9,7 @@ use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::client::legacy::Client;
 use thiserror::Error;
 
+mod date;
 mod extract;
 
 pub type FetchClient = Client<HttpsConnector<HttpConnector>, Empty<Bytes>>;
@@ -60,7 +61,10 @@ pub async fn rss(client: FetchClient, url: Uri) -> Result<(Feed, Vec<Item>), Err
     let url = url.to_string();
     let rss = response.into_body().collect().await?.to_bytes();
 
-    let parser = feed_rs::parser::Builder::new().base_uri(Some(&url)).build();
+    let parser = feed_rs::parser::Builder::new()
+        .base_uri(Some(&url))
+        .timestamp_parser(date::parse_date)
+        .build();
 
     let raw_feed = parser.parse(&*rss)?;
 
