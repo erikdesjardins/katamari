@@ -5,7 +5,7 @@ description = "Aggregate RSS and friends."
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.7", default-features = false, features = ["http1", "http2", "tokio", "tracing"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "http2", "tokio", "tracing"] }
 base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 clap = { version = "4", features = ["derive"] }
@@ -15,9 +15,9 @@ hyper = { version = "1", features = ["client", "http1", "http2"] }
 hyper-rustls = { version = "0.27", default-features = false, features = ["native-tokio", "http1", "http2", "tls12", "logging", "ring"] }
 hyper-util = { version = "0.1", features = ["client"] }
 mediatype = "0.19"
-quick-xml = { version = "0.36", features = ["escape-html"] }
-rand = { version = "0.8", default-features = false, features = ["std", "std_rng"] }
-thiserror = "1"
+quick-xml = { version = "0.38", features = ["escape-html"] }
+rand = { version = "0.9", default-features = false, features = ["thread_rng"] }
+thiserror = "2"
 tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["compression-br", "trace"] }

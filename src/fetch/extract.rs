@@ -2,6 +2,7 @@ use crate::err::Error;
 use feed_rs::model::{Content, Text};
 use mediatype::names::{HTML, TEXT};
 use mediatype::MediaType;
+use quick_xml::escape::resolve_html5_entity;
 use quick_xml::events::attributes::Attribute;
 use quick_xml::events::Event;
 use quick_xml::{Decoder, Reader};
@@ -54,20 +55,36 @@ fn summary_from_html_summary(summary: &str) -> Result<Option<String>, Error> {
     reader.config_mut().check_end_names = false;
     reader.config_mut().allow_unmatched_ends = true;
 
+    let mut text_content: Option<String> = None;
+
     loop {
+        // Accumulate the first block of text content, including embedded char refs (e.g. &amp;).
         match reader.read_event()? {
             Event::Eof => {
                 break;
             }
             Event::Text(text) => {
-                // Return the first text content we find.
-                return Ok(Some(text.unescape()?.into_owned()));
+                let text = text.html_content()?;
+                text_content.get_or_insert_default().push_str(&text);
             }
-            _ => {}
+            Event::GeneralRef(ref_) => {
+                let ref_ = ref_.decode()?;
+                let resolved = match resolve_html5_entity(&ref_) {
+                    Some(resolved) => resolved,
+                    None => &format!("&{};", ref_),
+                };
+                text_content.get_or_insert_default().push_str(resolved);
+            }
+            _ => {
+                if text_content.is_some() {
+                    // If we've already seen text, stop looking when we hit a new tag.
+                    break;
+                }
+            }
         }
     }
 
-    Ok(None)
+    Ok(text_content)
 }
 
 fn summary_from_html_body(item_href: &str, body: &str) -> Result<Option<String>, Error> {
