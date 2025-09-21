@@ -1,9 +1,14 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 
 // Fri, 01 August 2025 07:00:00 GMT
 // before parsing, converted to:
 // 01 August 2025 07:00:00 +0000
 const RFC1123: &str = "%d %B %Y %H:%M:%S %z";
+
+// Sat, 20 Sep 2025 00:00:00
+// before parsing, converted to:
+// 20 Sep 2025 00:00:00
+const RFC2822_NO_TZ: &str = "%d %b %Y %H:%M:%S";
 
 // 2025-08-26 21:29:20 UTC
 // before parsing, converted to:
@@ -13,6 +18,7 @@ const GITHUB_DATE: &str = "%Y-%m-%d %H:%M:%S %z";
 /// Similar to feed_rs::util::parse_timestamp_lenient, but with support for GitHub's nonstandard timestamp format
 pub fn parse_date(raw_input: &str) -> Option<DateTime<Utc>> {
     let input = raw_input
+        .trim_ascii()
         .replace("GMT", "+0000")
         .replace("UTC", "+0000")
         .replace("Mon, ", "")
@@ -25,6 +31,10 @@ pub fn parse_date(raw_input: &str) -> Option<DateTime<Utc>> {
 
     let raw_timestamp = DateTime::parse_from_rfc3339(&input)
         .or_else(|_| DateTime::parse_from_rfc2822(&input))
+        .or_else(|_| {
+            NaiveDateTime::parse_from_str(&input, RFC2822_NO_TZ)
+                .map(|dt| dt.and_utc().fixed_offset())
+        })
         .or_else(|_| DateTime::parse_from_str(&input, RFC1123))
         .or_else(|_| DateTime::parse_from_str(&input, GITHUB_DATE));
 
@@ -57,6 +67,8 @@ mod tests {
             ("Wed, 02 May 2025 07:00:00 GMT", "2025-05-02T07:00:00Z"),
             ("Thu, 07 Dec 2023 00:00:00 +0000", "2023-12-07T00:00:00Z"),
             ("Tue, 08 Apr 2025 11:03:32 +0200", "2025-04-08T09:03:32Z"),
+            // RFC2822 (no timezone)
+            ("Sat, 20 Sep 2025 00:00:00 ", "2025-09-20T00:00:00Z"),
             // RDS1123-like
             ("Fri, 01 August 2025 07:00:00 GMT", "2025-08-01T07:00:00Z"),
             // GitHub
